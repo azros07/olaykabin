@@ -5,50 +5,52 @@ import requests
 from PIL import Image
 from gradio_client import Client, handle_file
 
-# Sayfa Tasarımı ve Teması
+# Sayfa Tasarımı ve Diva Teması
 st.set_page_config(
-    page_title="AZROŞ | VIP OLAYKABIN",
-    page_icon="👗",
+    page_title="DIVA | VIP OLAYKABIN",
+    page_icon="👑",
     layout="wide"
 )
 
-# Custom CSS - Şık Mağaza Görünümü
+# Custom CSS - Diva VIP Görünümü
 st.markdown("""
     <style>
     .stButton>button {
-        background-color: #000000;
-        color: white;
-        border-radius: 8px;
-        height: 50px;
+        background: linear-gradient(45deg, #111111, #333333);
+        color: #D4AF37;
+        border: 1px solid #D4AF37;
+        border-radius: 10px;
+        height: 52px;
         font-weight: bold;
-        font-size: 16px;
+        font-size: 17px;
+        box-shadow: 0px 4px 10px rgba(0,0,0,0.3);
     }
     .stButton>button:hover {
-        background-color: #333333;
-        color: white;
+        background: linear-gradient(45deg, #D4AF37, #FFDF00);
+        color: #000000;
+        border: 1px solid #000000;
     }
     </style>
 """, unsafe_allow_html=True)
 
-st.title("👗 AZROŞ | VIP OLAYKABIN")
-st.caption("HD Kalitede Yüz Koruma Teknolojisi & Canlı Mağaza Yönlendirmeli Sanal Kabin")
+st.title("👑 DIVALARA ÖZEL | VIP OLAYKABIN")
+st.caption("✨ HD Kalitede Yüz Koruma Teknolojisi & Divalara Özel Mağaza Yönlendirmeli Sanal Kabin")
 
 # Yan Menü: Token & Mağaza Arama
 with st.sidebar:
-    st.header("⚙️ VIP Sistem Ayarları")
+    st.header("⚙️ Diva VIP Sistem Ayarları")
     hf_token = st.text_input("Hugging Face Token (İsteğe Bağlı)", type="password")
-    st.info("💡 İpucu: Kusursuz sonuç için fotoğrafların net ve ön cepheden çekilmiş olması gerekir.")
+    st.info("💋 Diva Tüyosu: Kusursuz sonuç için fotoğrafının düz, net ve Işık altında çekilmiş olması gerekir.")
 
 # Sekme Yapısı: Hazır Katalog vs Kendi Yükleyeceğin
-tab1, tab2 = st.tabs(["🛍️ ZENGİN MAĞAZA KATALOĞU", "📤 KENDİ KIYAFETİNİ YÜKLE"])
+tab1, tab2 = st.tabs(["💅 DIVA MAĞAZA KATALOĞU", "📤 KENDİ KIYAFETİNİ YÜKLE"])
 
 selected_garment_url = None
-garment_name = "Üst Giyim"
 
 with tab1:
-    st.subheader("Favori Tarzını Seç & Üzerinde Dene")
+    st.subheader("Favori Tarzını Seç & Üzerinde Dene Diva!")
     
-    # Zengin Kıyafet Koleksiyonu (Örnek Görseller ve Doğrudan Mağaza Linkleri)
+    # Zengin Kıyafet Koleksiyonu
     catalog = [
         {
             "title": "Mavi Gece Elbisesi",
@@ -83,7 +85,7 @@ with tab1:
     cols = st.columns(4)
     for idx, item in enumerate(catalog):
         with cols[idx % 4]:
-            st.image(item["img"], use_column_width=True)
+            st.image(item["img"])
             st.write(f"*{item['title']}*")
             if st.button(f"Bu Kıyafeti Seç", key=f"btn_{idx}"):
                 st.session_state["selected_garment"] = item["img"]
@@ -102,7 +104,7 @@ with col_user:
     st.subheader("1. Kendi Fotoğrafını Yükle")
     human_file = st.file_uploader("Düz duvar önünde çekilmiş boydan/üst beden fotoğrafın", type=["jpg", "png", "jpeg"])
     if human_file:
-        st.image(human_file, caption="Model (Sen)", width=250)
+        st.image(human_file, caption="Model Diva (Sen)", width=250)
 
 with col_preview:
     st.subheader("2. Denenecek Kıyafet Önizleme")
@@ -118,9 +120,9 @@ with col_preview:
 # İşlem Butonu
 if st.button("✨ KUSURSUZ GİYDİR VE BENZERLERİNİ BUL", use_container_width=True):
     if not human_file or not garment_to_use:
-        st.error("Lütfen hem kendi fotoğrafını yükle hem de bir kıyafet seç!")
+        st.error("Lütfen hem kendi fotoğrafını yükle hem de bir kıyafet seç Diva!")
     else:
-        with st.spinner("HD Kalitede işleniyor... Yüzün korunuyor ve kıyafet üzerine oturtuluyor..."):
+        with st.spinner("💋 HD Kalitede işleniyor... Yüzün korunuyor ve kıyafet üzerine oturtuluyor..."):
             human_path = None
             garment_path = None
             try:
@@ -158,8 +160,8 @@ if st.button("✨ KUSURSUZ GİYDİR VE BENZERLERİNİ BUL", use_container_width=
                     api_name="/tryon"
                 )
 
-                st.success("🎉 Harika Görünüyor!")
-                st.image(result[0], caption="AZROŞ VIP OLAYKABIN SONUÇ", use_column_width=True)
+                st.success("🎉 Podyum Seni Bekliyor Diva! Harika Görünüyorsun!")
+                st.image(result[0], caption="DIVA VIP OLAYKABIN SONUÇ")
 
                 # Mağaza Yönlendirme Alanı
                 st.divider()
@@ -184,7 +186,7 @@ if st.button("✨ KUSURSUZ GİYDİR VE BENZERLERİNİ BUL", use_container_width=
                         st.link_button("Trendyol'da Ara ➔", "https://www.trendyol.com/")
 
             except Exception as e:
-                st.error("Yapay zekâ sunucusu şu an yoğun, lütfen birkaç saniye sonra tekrar dene!")
+                st.error("Yapay zekâ sunucusu şu an yoğun Diva, lütfen birkaç saniye sonra tekrar dene!")
                 st.caption(f"Hata detayı: {e}")
             finally:
                 if human_path and os.path.exists(human_path):
