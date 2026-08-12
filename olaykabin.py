@@ -1,132 +1,193 @@
+import os
+import tempfile
 import streamlit as st
+import requests
 from PIL import Image
 from gradio_client import Client, handle_file
-import tempfile
-import os
-import urllib.parse
 
-# Sayfa Tasarımı
-st.set_page_config(page_title="AZROŞ | OLAYKABIN AI", page_icon="👗", layout="wide")
+# Sayfa Tasarımı ve Teması
+st.set_page_config(
+    page_title="AZROŞ | VIP OLAYKABIN",
+    page_icon="👗",
+    layout="wide"
+)
 
-st.title("A Z R O Ş  |  O L A Y K A B I N")
-st.caption("✨ AI VIRTUAL TRY-ON — GERÇEK YAPAY ZEKÂ GİYDİRME KABİNİ")
-st.markdown("---")
+# Custom CSS - Şık Mağaza Görünümü
+st.markdown("""
+    <style>
+    .stButton>button {
+        background-color: #000000;
+        color: white;
+        border-radius: 8px;
+        height: 50px;
+        font-weight: bold;
+        font-size: 16px;
+    }
+    .stButton>button:hover {
+        background-color: #333333;
+        color: white;
+    }
+    </style>
+""", unsafe_allow_html=True)
 
-col1, col2 = st.columns([1, 1])
+st.title("👗 AZROŞ | VIP OLAYKABIN")
+st.caption("HD Kalitede Yüz Koruma Teknolojisi & Canlı Mağaza Yönlendirmeli Sanal Kabin")
 
-with col1:
-    st.subheader("📋 1. Müşteri & Vücut Profili")
-    isim = st.text_input("Ad Soyad", value="Azra")
+# Yan Menü: Token & Mağaza Arama
+with st.sidebar:
+    st.header("⚙️ VIP Sistem Ayarları")
+    hf_token = st.text_input("Hugging Face Token (İsteğe Bağlı)", type="password")
+    st.info("💡 İpucu: Kusursuz sonuç için fotoğrafların net ve ön cepheden çekilmiş olması gerekir.")
+
+# Sekme Yapısı: Hazır Katalog vs Kendi Yükleyeceğin
+tab1, tab2 = st.tabs(["🛍️ ZENGİN MAĞAZA KATALOĞU", "📤 KENDİ KIYAFETİNİ YÜKLE"])
+
+selected_garment_url = None
+garment_name = "Üst Giyim"
+
+with tab1:
+    st.subheader("Favori Tarzını Seç & Üzerinde Dene")
     
-    col_k, col_b = st.columns(2)
-    with col_k:
-        kilo = st.number_input("Kilo (KG)", min_value=30.0, max_value=150.0, value=55.0)
-    with col_b:
-        bel = st.number_input("Bel Ölçüsü (CM)", min_value=40.0, max_value=120.0, value=65.0)
-
-    st.subheader("🛍️ 2. Kıyafet Seçimi")
-    urunler = [
-        "Oversize Heavyweight T-Shirt",
-        "Slim-Fit Tailored Blazer",
-        "Wide-Leg Denim Pants",
-        "Leather Biker Jacket",
-        "Satin Mini Elbise",
-        "Streetwear Hoodie",
-        "Bej Trençkot",
-        "Cargo Paraşüt Pantolon"
+    # Zengin Kıyafet Koleksiyonu (Örnek Görseller ve Doğrudan Mağaza Linkleri)
+    catalog = [
+        {
+            "title": "Mavi Gece Elbisesi",
+            "img": "https://images.unsplash.com/photo-1572804013309-59a88b7e92f1?w=500",
+            "zara_link": "https://www.zara.com/tr/tr/search?searchTerm=mavi%20elbise",
+            "mavi_link": "https://www.mavi.com/search/?text=mavi+elbise",
+            "trendyol_link": "https://www.trendyol.com/sr?q=mavi+elbise"
+        },
+        {
+            "title": "Beyaz Poplin Gömlek",
+            "img": "https://images.unsplash.com/photo-1598554747436-c9293d6a588f?w=500",
+            "zara_link": "https://www.zara.com/tr/tr/search?searchTerm=beyaz%20gomlek",
+            "mavi_link": "https://www.mavi.com/search/?text=beyaz+gomlek",
+            "trendyol_link": "https://www.trendyol.com/sr?q=beyaz+gomlek"
+        },
+        {
+            "title": "Siyah Deri Ceket",
+            "img": "https://images.unsplash.com/photo-1551028719-00167b16eac5?w=500",
+            "zara_link": "https://www.zara.com/tr/tr/search?searchTerm=deri%20ceket",
+            "mavi_link": "https://www.mavi.com/search/?text=deri+ceket",
+            "trendyol_link": "https://www.trendyol.com/sr?q=deri+ceket"
+        },
+        {
+            "title": "Kırmızı Çiçekli Elbise",
+            "img": "https://images.unsplash.com/photo-1612423284934-2850a4ea6b0f?w=500",
+            "zara_link": "https://www.zara.com/tr/tr/search?searchTerm=kırmızı%20elbise",
+            "mavi_link": "https://www.mavi.com/search/?text=kirmizi+elbise",
+            "trendyol_link": "https://www.trendyol.com/sr?q=kirmizi+elbise"
+        }
     ]
-    secilen_urun = st.selectbox("AZROŞ Koleksiyonundan Seçin", urunler)
 
-    st.subheader("📷 3. Fotoğraf Yükleme")
-    person_file = st.file_uploader("Kendi Boydan / Üst Beden Fotoğrafın", type=["jpg", "png", "jpeg"])
-    garment_file = st.file_uploader("Giymek İstediğin Kıyafetin Fotoğrafı", type=["jpg", "png", "jpeg"])
+    cols = st.columns(4)
+    for idx, item in enumerate(catalog):
+        with cols[idx % 4]:
+            st.image(item["img"], use_column_width=True)
+            st.write(f"*{item['title']}*")
+            if st.button(f"Bu Kıyafeti Seç", key=f"btn_{idx}"):
+                st.session_state["selected_garment"] = item["img"]
+                st.session_state["selected_item"] = item
+                st.success(f"{item['title']} Seçildi!")
 
-with col2:
-    st.subheader("🖼️ Yüklenen Fotoğraf Önizleme")
-    if person_file:
-        st.image(person_file, caption="Senin Fotoğrafın", use_container_width=True)
+with tab2:
+    uploaded_garment = st.file_uploader("İnternetten indirdiğin kıyafet görselini yükle", type=["jpg", "png", "jpeg"])
+
+st.divider()
+
+# Model Fotoğrafı Yükleme Alanı
+col_user, col_preview = st.columns(2)
+
+with col_user:
+    st.subheader("1. Kendi Fotoğrafını Yükle")
+    human_file = st.file_uploader("Düz duvar önünde çekilmiş boydan/üst beden fotoğrafın", type=["jpg", "png", "jpeg"])
+    if human_file:
+        st.image(human_file, caption="Model (Sen)", width=250)
+
+with col_preview:
+    st.subheader("2. Denenecek Kıyafet Önizleme")
+    garment_to_use = None
+    
+    if uploaded_garment:
+        garment_to_use = uploaded_garment
+        st.image(uploaded_garment, caption="Yüklediğin Kıyafet", width=250)
+    elif "selected_garment" in st.session_state:
+        garment_to_use = st.session_state["selected_garment"]
+        st.image(garment_to_use, caption="Katalogdan Seçilen Kıyafet", width=250)
+
+# İşlem Butonu
+if st.button("✨ KUSURSUZ GİYDİR VE BENZERLERİNİ BUL", use_container_width=True):
+    if not human_file or not garment_to_use:
+        st.error("Lütfen hem kendi fotoğrafını yükle hem de bir kıyafet seç!")
     else:
-        st.info("Lütfen sol taraftan kendi fotoğrafını yükle.")
+        with st.spinner("HD Kalitede işleniyor... Yüzün korunuyor ve kıyafet üzerine oturtuluyor..."):
+            human_path = None
+            garment_path = None
+            try:
+                # Kendi fotoğrafını geçici kaydet
+                with tempfile.NamedTemporaryFile(delete=False, suffix=".png") as f1:
+                    f1.write(human_file.getbuffer())
+                    human_path = f1.name
 
-st.markdown("---")
+                # Kıyafeti geçici kaydet (İnternet linki veya dosya yüklemesi)
+                with tempfile.NamedTemporaryFile(delete=False, suffix=".png") as f2:
+                    if isinstance(garment_to_use, str):
+                        img_data = requests.get(garment_to_use).content
+                        f2.write(img_data)
+                    else:
+                        f2.write(garment_to_use.getbuffer())
+                    garment_path = f2.name
 
-if st.button("✨ YAPAY ZEKÂ İLE ÜZERİMDE DENE (AI TRY-ON)", use_container_width=True):
-    if not person_file:
-        st.error("Lütfen önce kendi fotoğrafını yükle!")
-    else:
-        # Beden Önerisi
-        if "Denim" in secilen_urun or "Pantolon" in secilen_urun:
-            beden = "EU 36 (S)" if bel < 68 else "EU 38 (M)" if bel < 78 else "EU 40 (L)"
-        elif "Elbise" in secilen_urun:
-            beden = "34 (XS)" if bel < 64 else "36 (S)" if bel < 72 else "38 (M)"
-        else:
-            beden = "S" if kilo < 58 else "M" if kilo < 72 else "L" if kilo < 85 else "XL"
+                # AI İstemcisi
+                token = hf_token.strip() if hf_token and hf_token.strip() else None
+                client = Client("yisol/IDM-VTON", hf_token=token)
 
-        st.success(f"🎯 *Önerilen Beden:* {beden} | *Uyum Yüzdesi:* %98.4 (Azroş Fit)")
+                # Yüzü KORUYAN ve Tam Oturtan Parametreler
+                result = client.predict(
+                    dict={
+                        "background": handle_file(human_path),
+                        "layers": [],
+                        "composite": handle_file(human_path)
+                    },
+                    garm_img=handle_file(garment_path),
+                    garment_des="clothing",
+                    is_checked=True,
+                    is_checked_crop=False,  # YÜZÜ VE BOYUTLARI ASLA KIRPMAZ / BOZMAZ
+                    denoise_steps=30,       # Maksimum Kalite Adımı
+                    seed=42,
+                    api_name="/tryon"
+                )
 
-        # AI Giydirme Süreci
-        if garment_file:
-            with st.spinner("🤖 Yapay zekâ kıyafeti üzerinize giydiriyor... (15-25 saniye)"):
-                person_path = None
-                garment_path = None
-                try:
-                    # Geçici resimleri güvenli kaydetme
-                    with tempfile.NamedTemporaryFile(delete=False, suffix=".png") as tmp_p:
-                        tmp_p.write(person_file.getvalue())
-                        person_path = tmp_p.name
+                st.success("🎉 Harika Görünüyor!")
+                st.image(result[0], caption="AZROŞ VIP OLAYKABIN SONUÇ", use_column_width=True)
 
-                    with tempfile.NamedTemporaryFile(delete=False, suffix=".png") as tmp_g:
-                        tmp_g.write(garment_file.getvalue())
-                        garment_path = tmp_g.name
+                # Mağaza Yönlendirme Alanı
+                st.divider()
+                st.subheader("🛍️ Bu Tarzı Beğendin mi? Mağazalarda Doğrudan İncele:")
+                
+                if "selected_item" in st.session_state:
+                    item = st.session_state["selected_item"]
+                    col_b1, col_b2, col_b3 = st.columns(3)
+                    with col_b1:
+                        st.link_button("Zara'da Benzerleri Gör ➔", item["zara_link"])
+                    with col_b2:
+                        st.link_button("Mavi'de Benzerleri Gör ➔", item["mavi_link"])
+                    with col_b3:
+                        st.link_button("Trendyol'da Benzerleri Gör ➔", item["trendyol_link"])
+                else:
+                    col_b1, col_b2, col_b3 = st.columns(3)
+                    with col_b1:
+                        st.link_button("Zara'da Benzer Ürünleri Ara ➔", "https://www.zara.com/tr/")
+                    with col_b2:
+                        st.link_button("Mavi'de Benzer Ürünleri Ara ➔", "https://www.mavi.com/")
+                    with col_b3:
+                        st.link_button("Trendyol'da Ara ➔", "https://www.trendyol.com/")
 
-                    # Hugging Face AI Servisi Bağlantısı
-                    client = Client("yisol/IDM-VTON")
-                    result = client.predict(
-                        dict={"background": handle_file(person_path), "layers": [], "composite": None},
-                        garm_img=handle_file(garment_path),
-                        garment_des=secilen_urun,
-                        is_checked=True,
-                        is_checked_crop=False,
-                        denoise_steps=30,
-                        seed=42,
-                        api_name="/tryon"
-                    )
-
-                    result_img = Image.open(result[0])
-                    st.balloons()
-                    st.subheader("🔥 İŞTE SANAL KABİNDEKİ SONUÇ:")
-                    st.image(result_img, caption=f"{isim.upper()} — {secilen_urun} Üzerinde Denendi", use_container_width=True)
-
-                except Exception as e:
-                    st.warning("Yapay zekâ sunucusu şu an yoğun, ancak beden analiziniz yukarıda hazır!")
-                finally:
-                    # Geçici dosyaları temizleme
-                    if person_path and os.path.exists(person_path):
-                        os.remove(person_path)
-                    if garment_path and os.path.exists(garment_path):
-                        os.remove(garment_path)
-        else:
-            st.info("Kıyafet fotoğrafı yüklemediğin için sadece beden ve mağaza analizi yapıldı.")
-
-        # Mağaza Yönlendirmeleri
-        st.markdown("---")
-        st.subheader("🛍️ Benzer Ürünleri Popüler Mağazalarda İncele")
-        
-        query = urllib.parse.quote(secilen_urun)
-        
-        m_col1, m_col2, m_col3, m_col4, m_col5 = st.columns(5)
-        with m_col1:
-            st.link_button("🧡 Trendyol", f"https://www.trendyol.com/sr?q={query}")
-            st.link_button("🌸 Bershka", f"https://www.bershka.com/tr/search?searchTerm={query}")
-        with m_col2:
-            st.link_button("🔴 H&M", f"https://www2.hm.com/tr_tr/search-results.html?q={query}")
-            st.link_button("🎼 Stradivarius", f"https://www.stradivarius.com/tr/search?searchTerm={query}")
-        with m_col3:
-            st.link_button("🖤 Zara", f"https://www.zara.com/tr/tr/search?searchTerm={query}")
-            st.link_button("💙 LC Waikiki", f"https://www.lcwaikiki.com/tr-TR/TR/arama?q={query}")
-        with m_col4:
-            st.link_button("🥭 Mango", f"https://shop.mango.com/tr/search?kw={query}")
-            st.link_button("🔴 Koton", f"https://www.koton.com/search/?q={query}")
-        with m_col5:
-            st.link_button("🐻 Pull&Bear", f"https://www.pullandbear.com/tr/search?searchTerm={query}")
-            st.link_button("🔵 DeFacto", f"https://www.defacto.com.tr/arama?q={query}")
+            except Exception as e:
+                st.error("Yapay zekâ sunucusu şu an yoğun, lütfen birkaç saniye sonra tekrar dene!")
+                st.caption(f"Hata detayı: {e}")
+            finally:
+                if human_path and os.path.exists(human_path):
+                    os.remove(human_path)
+                if garment_path and os.path.exists(garment_path):
+                    os.remove(garment_path)
