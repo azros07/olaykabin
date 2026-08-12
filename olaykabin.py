@@ -1,194 +1,118 @@
 import os
-import tempfile
-import streamlit as st
-import requests
-from PIL import Image
+import gradio as gr
 from gradio_client import Client, handle_file
+from PIL import Image, ImageOps
 
-# Sayfa Tasarımı ve Diva Teması
-st.set_page_config(
-    page_title="DIVA | VIP OLAYKABIN",
-    page_icon="👑",
-    layout="wide"
-)
+# Hugging Face Token (Varsa ortam değişkeninden alır, yoksa None geçer)
+HF_TOKEN = os.getenv("HF_TOKEN", None)
 
-# Custom CSS - Diva VIP Görünümü
-st.markdown("""
-    <style>
-    .stButton>button {
-        background: linear-gradient(45deg, #111111, #333333);
-        color: #D4AF37;
-        border: 1px solid #D4AF37;
-        border-radius: 10px;
-        height: 52px;
-        font-weight: bold;
-        font-size: 17px;
-        box-shadow: 0px 4px 10px rgba(0,0,0,0.3);
-    }
-    .stButton>button:hover {
-        background: linear-gradient(45deg, #D4AF37, #FFDF00);
-        color: #000000;
-        border: 1px solid #000000;
-    }
-    </style>
-""", unsafe_allow_html=True)
+def fotograﬁ_duzelt(image_path):
+    """Telefondan yüklenen görsellerin yan/ters dönmesini engeller."""
+    if not image_path:
+        return None
+    try:
+        img = Image.open(image_path)
+        img = ImageOps.exif_transpose(img)  # Kamera EXIF yön bilgisini düzeltir
+        duzeltilmis_yol = "fixed_input.png"
+        img.save(duzeltilmis_yol)
+        return duzeltilmis_yol
+    except Exception as e:
+        print(f"Görsel düzeltme uyarısı: {e}")
+        return image_path
 
-st.title("👑 DIVALARA ÖZEL | VIP OLAYKABIN")
-st.caption("✨ HD Kalitede Yüz Koruma Teknolojisi & Divalara Özel Mağaza Yönlendirmeli Sanal Kabin")
-
-# Yan Menü: Token & Bilgilendirme
-with st.sidebar:
-    st.header("⚙️ Diva VIP Sistem Ayarları")
-    hf_token = st.text_input("Hugging Face Token (İsteğe Bağlı)", type="password")
-    st.info("💋 Diva Tüyosu: Kusursuz sonuç için fotoğrafının düz, net ve ışık altında çekilmiş olması gerekir.")
-
-# Sekme Yapısı: Hazır Katalog vs Kendi Yükleyeceğin
-tab1, tab2 = st.tabs(["💅 DIVA MAĞAZA KATALOĞU", "📤 KENDİ KIYAFETİNİ YÜKLE"])
-
-selected_garment_url = None
-
-with tab1:
-    st.subheader("Favori Tarzını Seç & Üzerinde Dene Diva!")
+def olaykabin_giydir(kullanici_fotosu, kiyafet_fotosu):
+    if not kullanici_fotosu or not kiyafet_fotosu:
+        return None, "Aşkım lütfen hem kendi fotoğrafını hem de giymek istediğin kıyafeti yükle! ✨"
     
-    catalog = [
-        {
-            "title": "Mavi Gece Elbisesi",
-            "img": "https://images.unsplash.com/photo-1572804013309-59a88b7e92f1?w=500",
-            "zara_link": "https://www.zara.com/tr/tr/search?searchTerm=mavi%20elbise",
-            "mavi_link": "https://www.mavi.com/search/?text=mavi+elbise",
-            "trendyol_link": "https://www.trendyol.com/sr?q=mavi+elbise"
-        },
-        {
-            "title": "Beyaz Poplin Gömlek",
-            "img": "https://images.unsplash.com/photo-1598554747436-c9293d6a588f?w=500",
-            "zara_link": "https://www.zara.com/tr/tr/search?searchTerm=beyaz%20gomlek",
-            "mavi_link": "https://www.mavi.com/search/?text=beyaz+gomlek",
-            "trendyol_link": "https://www.trendyol.com/sr?q=beyaz+gomlek"
-        },
-        {
-            "title": "Siyah Deri Ceket",
-            "img": "https://images.unsplash.com/photo-1551028719-00167b16eac5?w=500",
-            "zara_link": "https://www.zara.com/tr/tr/search?searchTerm=deri%20ceket",
-            "mavi_link": "https://www.mavi.com/search/?text=deri+ceket",
-            "trendyol_link": "https://www.trendyol.com/sr?q=deri+ceket"
-        },
-        {
-            "title": "Kırmızı Çiçekli Elbise",
-            "img": "https://images.unsplash.com/photo-1612423284934-2850a4ea6b0f?w=500",
-            "zara_link": "https://www.zara.com/tr/tr/search?searchTerm=kırmızı%20elbise",
-            "mavi_link": "https://www.mavi.com/search/?text=kirmizi+elbise",
-            "trendyol_link": "https://www.trendyol.com/sr?q=kirmizi+elbise"
-        }
-    ]
+    try:
+        # 1. Görsellerin yönünü otomatik düzelt
+        islenmis_user_img = fotograﬁ_duzelt(kullanici_fotosu)
+        islenmis_garm_img = fotograﬁ_duzelt(kiyafet_fotosu)
 
-    cols = st.columns(4)
-    for idx, item in enumerate(catalog):
-        with cols[idx % 4]:
-            st.image(item["img"])
-            st.write(f"*{item['title']}*")
-            if st.button(f"Bu Kıyafeti Seç", key=f"btn_{idx}"):
-                st.session_state["selected_garment"] = item["img"]
-                st.session_state["selected_item"] = item
-                st.success(f"{item['title']} Seçildi!")
+        # 2. Sanal Kabin AI İstemcisi (Güncel token parametresi ile)
+        client_kwargs = {}
+        if HF_TOKEN:
+            client_kwargs["token"] = HF_TOKEN
 
-with tab2:
-    uploaded_garment = st.file_uploader("İnternetten indirdiğin kıyafet görselini yükle", type=["jpg", "png", "jpeg"])
+        client = Client("yisol/IDM-VTON", **client_kwargs)
 
-st.divider()
+        # 3. Model Tahmin İsteği
+        result = client.predict(
+            dict={"background": handle_file(islenmis_user_img), "layers": [], "composite": None},
+            garm_img=handle_file(islenmis_garm_img),
+            garment_des="Stylish outfit",
+            is_checked=True,
+            is_checked_crop=False,
+            denoise_steps=30,
+            seed=42,
+            api_name="/tryon"
+        )
 
-# Model Fotoğrafı Yükleme Alanı
-col_user, col_preview = st.columns(2)
+        # 4. Çıkan sonuç görselinin yönünü düzelt ve döndür
+        if result and len(result) > 0:
+            sonuc_yolu = result[0]
+            sonuc_duzeltilmis = fotograﬁ_duzelt(sonuc_yolu)
+            return sonuc_duzeltilmis, None
+        else:
+            return None, "Görsel oluşturulamadı, lütfen tekrar dene Diva!"
 
-with col_user:
-    st.subheader("1. Kendi Fotoğrafını Yükle")
-    human_file = st.file_uploader("Düz duvar önünde çekilmiş boydan/üst beden fotoğrafın", type=["jpg", "png", "jpeg"])
-    if human_file:
-        st.image(human_file, caption="Model Diva (Sen)", width=250)
+    except Exception as e:
+        print(f"Sistem Detay Hatası: {str(e)}")
+        error_msg = "Yapay zekâ sunucusu şu an yoğun Diva, lütfen birkaç saniye sonra tekrar dene!"
+        return None, error_msg
 
-with col_preview:
-    st.subheader("2. Denenecek Kıyafet Önizleme")
-    garment_to_use = None
+# Custom CSS - Ekran görüntüsündeki tasarımla birebir uyumlu
+custom_css = """
+.yellow-btn {
+    background-color: #FFD500 !important;
+    color: #000000 !important;
+    font-weight: 800 !important;
+    border-radius: 14px !important;
+    font-size: 16px !important;
+    border: none !important;
+    box-shadow: 0px 4px 10px rgba(0,0,0,0.1) !important;
+}
+.yellow-btn:hover {
+    background-color: #E6C000 !important;
+}
+.error-box {
+    background-color: #FFEBEB !important;
+    color: #D32F2F !important;
+    padding: 14px !important;
+    border-radius: 12px !important;
+    font-size: 14px !important;
+    font-weight: 600 !important;
+    border: 1px solid #FFCDD2 !important;
+}
+"""
+
+with gr.Blocks(css=custom_css, title="Diva VIP Olaykabin") as demo:
     
-    if uploaded_garment:
-        garment_to_use = uploaded_garment
-        st.image(uploaded_garment, caption="Yüklediğin Kıyafet", width=250)
-    elif "selected_garment" in st.session_state:
-        garment_to_use = st.session_state["selected_garment"]
-        st.image(garment_to_use, caption="Katalogdan Seçilen Kıyafet", width=250)
+    gr.Markdown("## ✨ Diva VIP Olaykabin")
+    
+    with gr.Row():
+        user_img = gr.Image(type="filepath", label="Kendi Fotoğrafın")
+        garment_img = gr.Image(type="filepath", label="Yüklediğin Kıyafet")
+    
+    btn = gr.Button("✨ KUSURSUZ GİYDİR VE BENZERLERİNİ BUL", elem_classes=["yellow-btn"])
+    
+    error_output = gr.Markdown(visible=False, elem_classes=["error-box"])
+    
+    result_img = gr.Image(label="DIVA VIP OLAYKABIN SONUÇ", type="filepath")
+    
+    gr.Markdown("🛍️ *Bu Tarzı Beğendin mi? Mağazalarda Doğrudan İncele:*")
 
-# İşlem Butonu
-if st.button("✨ KUSURSUZ GİYDİR VE BENZERLERİNİ BUL", use_container_width=True):
-    if not human_file or not garment_to_use:
-        st.error("Lütfen hem kendi fotoğrafını yükle hem de bir kıyafet seç Diva!")
-    else:
-        with st.spinner("💋 HD Kalitede işleniyor... Yüzün korunuyor ve kıyafet üzerine oturtuluyor..."):
-            human_path = None
-            garment_path = None
-            try:
-                # Kendi fotoğrafını geçici dosyaya kaydet
-                with tempfile.NamedTemporaryFile(delete=False, suffix=".png") as f1:
-                    f1.write(human_file.getbuffer())
-                    human_path = f1.name
+    def process_ui(user_i, garm_i):
+        res, err = olaykabin_giydir(user_i, garm_i)
+        if err:
+            return gr.update(value=None), gr.update(value=err, visible=True)
+        return gr.update(value=res), gr.update(visible=False)
 
-                # Kıyafet fotoğrafını geçici dosyaya kaydet
-                with tempfile.NamedTemporaryFile(delete=False, suffix=".png") as f2:
-                    if isinstance(garment_to_use, str):
-                        img_data = requests.get(garment_to_use).content
-                        f2.write(img_data)
-                    else:
-                        f2.write(garment_to_use.getbuffer())
-                    garment_path = f2.name
+    btn.click(
+        fn=process_ui,
+        inputs=[user_img, garment_img],
+        outputs=[result_img, error_output]
+    )
 
-                # AI İstemci Bağlantısı (Güncel Gradio Client Yapısı)
-                token_val = hf_token.strip() if hf_token and hf_token.strip() else os.environ.get("HF_TOKEN")
-                
-                if token_val:
-                    client = Client("yisol/IDM-VTON", hf_token=token_val)
-                else:
-                    client = Client("yisol/IDM-VTON")
-
-                # IDM-VTON Modeline Gönderilen İstem
-                result = client.predict(
-                    dict={"background": handle_file(human_path), "layers": [], "composite": handle_file(human_path)},
-                    garm_img=handle_file(garment_path),
-                    garment_des="clothing",
-                    is_checked=True,
-                    is_checked_crop=False,
-                    denoise_steps=30,
-                    seed=42,
-                    api_name="/tryon"
-                )
-
-                st.success("🎉 Podyum Seni Bekliyor Diva! Harika Görünüyorsun!")
-                st.image(result[0], caption="DIVA VIP OLAYKABIN SONUÇ")
-
-                # Mağaza Yönlendirme Alanı
-                st.divider()
-                st.subheader("🛍️ Bu Tarzı Beğendin mi? Mağazalarda Doğrudan İncele:")
-                
-                if "selected_item" in st.session_state:
-                    item = st.session_state["selected_item"]
-                    col_b1, col_b2, col_b3 = st.columns(3)
-                    with col_b1:
-                        st.link_button("Zara'da Benzerleri Gör ➔", item["zara_link"])
-                    with col_b2:
-                        st.link_button("Mavi'de Benzerleri Gör ➔", item["mavi_link"])
-                    with col_b3:
-                        st.link_button("Trendyol'da Benzerleri Gör ➔", item["trendyol_link"])
-                else:
-                    col_b1, col_b2, col_b3 = st.columns(3)
-                    with col_b1:
-                        st.link_button("Zara'da Benzer Ürünleri Ara ➔", "https://www.zara.com/tr/")
-                    with col_b2:
-                        st.link_button("Mavi'de Benzer Ürünleri Ara ➔", "https://www.mavi.com/")
-                    with col_b3:
-                        st.link_button("Trendyol'da Ara ➔", "https://www.trendyol.com/")
-
-            except Exception as e:
-                st.error("Yapay zekâ sunucusu şu an yoğun Diva, lütfen birkaç saniye sonra tekrar dene!")
-                st.caption(f"Hata detayı: {e}")
-            finally:
-                if human_path and os.path.exists(human_path):
-                    os.remove(human_path)
-                if garment_path and os.path.exists(garment_path):
-                    os.remove(garment_path)
+if _name_ == "_main_":
+    demo.launch()
