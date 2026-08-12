@@ -40,7 +40,7 @@ st.caption("✨ HD Kalitede Yüz Koruma Teknolojisi & Divalara Özel Mağaza Yö
 with st.sidebar:
     st.header("⚙️ Diva VIP Sistem Ayarları")
     hf_token = st.text_input("Hugging Face Token (İsteğe Bağlı)", type="password")
-    st.info("💋 Diva Tüyosu: Kusursuz sonuç için fotoğrafının düz, net ve Işık altında çekilmiş olması gerekir.")
+    st.info("💋 Diva Tüyosu: Kusursuz sonuç için fotoğrafının düz, net ve ışık altında çekilmiş olması gerekir.")
 
 # Sekme Yapısı: Hazır Katalog vs Kendi Yükleyeceğin
 tab1, tab2 = st.tabs(["💅 DIVA MAĞAZA KATALOĞU", "📤 KENDİ KIYAFETİNİ YÜKLE"])
@@ -140,9 +140,12 @@ if st.button("✨ KUSURSUZ GİYDİR VE BENZERLERİNİ BUL", use_container_width=
                         f2.write(garment_to_use.getbuffer())
                     garment_path = f2.name
 
-                # AI İstemcisi
+                # AI İstemcisi - Güncel Client Bağlantısı
                 token = hf_token.strip() if hf_token and hf_token.strip() else None
-                client = Client("yisol/IDM-VTON", hf_token=token)
+                if token:
+                    client = Client("yisol/IDM-VTON", headers={"Authorization": f"Bearer {token}"})
+                else:
+                    client = Client("yisol/IDM-VTON")
 
                 # Yüzü KORUYAN ve Tam Oturtan Parametreler
                 result = client.predict(
