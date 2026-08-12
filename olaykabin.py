@@ -36,7 +36,7 @@ st.markdown("""
 st.title("👑 DIVALARA ÖZEL | VIP OLAYKABIN")
 st.caption("✨ HD Kalitede Yüz Koruma Teknolojisi & Divalara Özel Mağaza Yönlendirmeli Sanal Kabin")
 
-# Yan Menü: Token & Mağaza Arama
+# Yan Menü: Token & Bilgilendirme
 with st.sidebar:
     st.header("⚙️ Diva VIP Sistem Ayarları")
     hf_token = st.text_input("Hugging Face Token (İsteğe Bağlı)", type="password")
@@ -50,7 +50,6 @@ selected_garment_url = None
 with tab1:
     st.subheader("Favori Tarzını Seç & Üzerinde Dene Diva!")
     
-    # Zengin Kıyafet Koleksiyonu
     catalog = [
         {
             "title": "Mavi Gece Elbisesi",
@@ -126,12 +125,12 @@ if st.button("✨ KUSURSUZ GİYDİR VE BENZERLERİNİ BUL", use_container_width=
             human_path = None
             garment_path = None
             try:
-                # Kendi fotoğrafını geçici kaydet
+                # Kendi fotoğrafını geçici dosyaya kaydet
                 with tempfile.NamedTemporaryFile(delete=False, suffix=".png") as f1:
                     f1.write(human_file.getbuffer())
                     human_path = f1.name
 
-                # Kıyafeti geçici kaydet (İnternet linki veya dosya yüklemesi)
+                # Kıyafet fotoğrafını geçici dosyaya kaydet
                 with tempfile.NamedTemporaryFile(delete=False, suffix=".png") as f2:
                     if isinstance(garment_to_use, str):
                         img_data = requests.get(garment_to_use).content
@@ -140,25 +139,22 @@ if st.button("✨ KUSURSUZ GİYDİR VE BENZERLERİNİ BUL", use_container_width=
                         f2.write(garment_to_use.getbuffer())
                     garment_path = f2.name
 
-                # AI İstemcisi - Güncel Client Bağlantısı
-                token = hf_token.strip() if hf_token and hf_token.strip() else None
-                if token:
-                    client = Client("yisol/IDM-VTON", headers={"Authorization": f"Bearer {token}"})
+                # AI İstemci Bağlantısı (Güncel Gradio Client Yapısı)
+                token_val = hf_token.strip() if hf_token and hf_token.strip() else os.environ.get("HF_TOKEN")
+                
+                if token_val:
+                    client = Client("yisol/IDM-VTON", hf_token=token_val)
                 else:
                     client = Client("yisol/IDM-VTON")
 
-                # Yüzü KORUYAN ve Tam Oturtan Parametreler
+                # IDM-VTON Modeline Gönderilen İstem
                 result = client.predict(
-                    dict={
-                        "background": handle_file(human_path),
-                        "layers": [],
-                        "composite": handle_file(human_path)
-                    },
+                    dict={"background": handle_file(human_path), "layers": [], "composite": handle_file(human_path)},
                     garm_img=handle_file(garment_path),
                     garment_des="clothing",
                     is_checked=True,
-                    is_checked_crop=False,  # YÜZÜ VE BOYUTLARI ASLA KIRPMAZ / BOZMAZ
-                    denoise_steps=30,       # Maksimum Kalite Adımı
+                    is_checked_crop=False,
+                    denoise_steps=30,
                     seed=42,
                     api_name="/tryon"
                 )
